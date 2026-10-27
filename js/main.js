@@ -13,6 +13,7 @@ const ground = canvas.height - 100;
 const bgm = new Audio("../bgm/8bit Bossa.mp3");
 bgm.loop = true;
 bgm.volume = 0.5;
+const targetFrameDuration = 1000 / 60;
 
 // 定義 Sprite 類別
 const background = new Sprite(
@@ -154,6 +155,74 @@ const meatSound = new Audio("../bgm/Coin01.mp3");
 // 撞到石頭的音效
 const hitSound = new Audio("../bgm/Downer01.mp3");
 
+const gameImages = [
+    background.image,
+    grassland.image,
+    mountain.image,
+    mountain2.image,
+    scenery.image,
+    scenery2.image,
+    heartImage.image,
+    gameOverImage.image,
+    restartImage.image,
+    startImage.image,
+    meat.image,
+    stoneA.image,
+    stoneB.image,
+    ...playerImage.images
+];
+
+function waitForImage(image) {
+    return new Promise((resolve, reject) => {
+        const fail = () => {
+            cleanup();
+            reject(new Error(`Image failed to load: ${image.src}`));
+        };
+        const load = () => {
+            cleanup();
+            resolve(image);
+        };
+        const cleanup = () => {
+            image.removeEventListener("load", load);
+            image.removeEventListener("error", fail);
+        };
+
+        if (image.complete) {
+            if (image.naturalWidth > 0) {
+                resolve(image);
+            } else {
+                reject(new Error(`Image failed to load: ${image.src}`));
+            }
+            return;
+        }
+
+        image.addEventListener("load", load, { once: true });
+        image.addEventListener("error", fail, { once: true });
+    });
+}
+
+async function loadGameResources() {
+    await Promise.all(gameImages.map(waitForImage));
+    await document.fonts.load("16px 'Press Start 2P'");
+
+    if (!document.fonts.check("16px 'Press Start 2P'")) {
+        throw new Error("Press Start 2P font failed to load.");
+    }
+}
+
+function showResourceLoadError(error) {
+    console.error("Game resources could not be loaded.", error);
+    c.clearRect(0, 0, canvas.width, canvas.height);
+    c.fillStyle = "white";
+    c.font = "16px monospace";
+    c.textAlign = "center";
+    c.fillText(
+        "Unable to load game resources. Check the console for details.",
+        canvas.width / 2,
+        canvas.height / 2
+    );
+}
+
 // 判斷玩家是否在地面上
 function isOnGround(player) {
     return player.position.y + player.height >= ground;
@@ -161,12 +230,17 @@ function isOnGround(player) {
 
 // 監聽鍵盤事件，控制玩家跳躍
 window.addEventListener("keydown", (event) => {
-    switch (event.key) {
-        case "w":
-            if (isOnGround(player)) {
-                player.speed.y -= 15;
-            }
-            break;
+    if (
+        !gameStarted ||
+        gameOver ||
+        event.repeat ||
+        event.key.toLowerCase() !== "w"
+    ) {
+        return;
+    }
+
+    if (isOnGround(player)) {
+        player.speed.y -= 15;
     }
 });
 
@@ -257,9 +331,17 @@ canvas.addEventListener("click", (event) => {
     }
 });
 
+let lastTimestamp = null;
+
 // 遊戲主迴圈
-function animate() {
-    window.requestAnimationFrame(animate)
+function animate(timestamp) {
+    window.requestAnimationFrame(animate);
+
+    const elapsedMs = lastTimestamp === null
+        ? targetFrameDuration
+        : Math.min(timestamp - lastTimestamp, 50);
+    const deltaFrames = elapsedMs / targetFrameDuration;
+    lastTimestamp = timestamp;
 
     if (gameOver) {
         // 顯示 GAME OVER 圖片
@@ -321,18 +403,20 @@ function animate() {
     return;
     }
     // 累積遊戲時間
-    gameTime++;
-
     // 每 10 秒加速一次，最高速度為 10
-    if (gameTime % 600 === 0 && gameSpeed < 10) {
-    gameSpeed += 1;
+    if (gameSpeed < 10) {
+        gameTime += elapsedMs;
+        while (gameTime >= 10000 && gameSpeed < 10) {
+            gameTime -= 10000;
+            gameSpeed += 1;
+        }
     }
 
     // 移動背景
-    mountain.position.x -= gameSpeed * 0.2;
-    mountain2.position.x -= gameSpeed * 0.2;
-    scenery.position.x -= gameSpeed * 0.3;
-    scenery2.position.x -= gameSpeed * 0.3;
+    mountain.position.x -= gameSpeed * 0.2 * deltaFrames;
+    mountain2.position.x -= gameSpeed * 0.2 * deltaFrames;
+    scenery.position.x -= gameSpeed * 0.3 * deltaFrames;
+    scenery2.position.x -= gameSpeed * 0.3 * deltaFrames;
     if (mountain.position.x <= -1024) {
         mountain.position.x = mountain2.position.x + 1024;}
     if (mountain2.position.x <= -1024) {
@@ -343,9 +427,9 @@ function animate() {
         scenery2.position.x = scenery.position.x + 1024;}
 
     // 移動障礙物和獎勵物件
-    meat.position.x -= gameSpeed;
-    stoneA.position.x -= gameSpeed;
-    stoneB.position.x -= gameSpeed;
+    meat.position.x -= gameSpeed * deltaFrames;
+    stoneA.position.x -= gameSpeed * deltaFrames;
+    stoneB.position.x -= gameSpeed * deltaFrames;
 
     // 如果障礙物或獎勵物件移出畫布，重新設定它們的位置
     if (meat.position.x + meat.width < 0) {
@@ -381,8 +465,8 @@ function animate() {
 
 
     // 更新玩家位置和速度
-    player.speed.y += gravity;
-    player.position.y += player.speed.y;
+    player.speed.y += gravity * deltaFrames;
+    player.position.y += player.speed.y * deltaFrames;
 
     // 確保玩家不會掉出畫布
     if (isOnGround(player)) {
@@ -485,7 +569,7 @@ function animate() {
     // 更新玩家動畫
     playerImage.position.x = player.position.x;
     playerImage.position.y = player.position.y;
-    playerImage.update()
+    playerImage.update(deltaFrames)
     playerImage.draw(c, player.width, player.height);
 
     // 顯示分數
@@ -506,4 +590,6 @@ function animate() {
 
 }
 
-animate();
+loadGameResources().then(() => {
+    window.requestAnimationFrame(animate);
+}).catch(showResourceLoadError);

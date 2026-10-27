@@ -22,11 +22,11 @@ function AnimatedDog (position, imagePaths, frameInterval = 8){
 };
 
     // 切換到下一張圖片
-AnimatedDog.prototype.update = function() {
-    this.frameTimer++;
-    if (this.frameTimer >= this.frameInterval) {
+AnimatedDog.prototype.update = function(deltaFrames = 1) {
+    this.frameTimer += deltaFrames;
+    while (this.frameTimer >= this.frameInterval) {
         this.frame = (this.frame + 1) % this.images.length;
-        this.frameTimer = 0;
+        this.frameTimer -= this.frameInterval;
     }
 };
 
