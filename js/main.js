@@ -166,15 +166,29 @@ function placeAfterOthers(object, others) {
     object.position.x = rightmost + randomObjectGap();
 }
 
+function shuffleObjects(objects) {
+    for (let index = objects.length - 1; index > 0; index--) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [objects[index], objects[randomIndex]] = [objects[randomIndex], objects[index]];
+    }
+
+    return objects;
+}
+
 function resetObjectPositions() {
-    meat.position.x = 450 + Math.random() * 350;
-    meat.position.y = ground - 60;
+    const objectOrder = shuffleObjects([meat, stoneA, stoneB]);
+    objectOrder[0].position.x = 450 + Math.random() * 350;
 
-    placeAfterOthers(stoneA, [meat]);
-    placeAfterOthers(stoneB, [meat, stoneA]);
+    for (let index = 0; index < objectOrder.length; index++) {
+        const object = objectOrder[index];
+        object.position.y = ground - 60;
 
-    stoneA.position.y = ground - 60;
-    stoneB.position.y = ground - 60;
+        if (index > 0) {
+            const previousObject = objectOrder[index - 1];
+            object.position.x =
+                previousObject.position.x + previousObject.width + randomObjectGap();
+        }
+    }
 }
 
 resetObjectPositions();
@@ -566,6 +580,7 @@ function animate(timestamp) {
     // 顯示分數
     c. fillStyle = "white";
     c.font = "16px 'Press Start 2P'";
+    c.textAlign = "left";
     c.fillText("Score: " + score, 30,40)
 
     // 顯示生命值
