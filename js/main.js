@@ -149,6 +149,36 @@ const stoneBHitbox = {
     width: 48,
     height: 48
 }
+
+const minObjectGap = 200;
+const maxObjectGap = 700;
+
+function randomObjectGap() {
+    return minObjectGap + Math.random() * (maxObjectGap - minObjectGap);
+}
+
+function placeAfterOthers(object, others) {
+    const rightmost = Math.max(
+        canvas.width,
+        ...others.map(other => other.position.x + other.width)
+    );
+
+    object.position.x = rightmost + randomObjectGap();
+}
+
+function resetObjectPositions() {
+    meat.position.x = 450 + Math.random() * 350;
+    meat.position.y = ground - 60;
+
+    placeAfterOthers(stoneA, [meat]);
+    placeAfterOthers(stoneB, [meat, stoneA]);
+
+    stoneA.position.y = ground - 60;
+    stoneB.position.y = ground - 60;
+}
+
+resetObjectPositions();
+
 // 撿到獎勵的音效
 const meatSound = new Audio("../bgm/Coin01.mp3");
 
@@ -286,14 +316,7 @@ canvas.addEventListener("click", (event) => {
         player.speed.y = 0;
 
         // 重設獎勵和石頭的位置
-        meat.position.x = 500;
-        meat.position.y = ground - 60;
-
-        stoneA.position.x = 700;
-        stoneA.position.y = ground - 60;
-
-        stoneB.position.x = 1100;
-        stoneB.position.y = ground - 60;
+        resetObjectPositions();
 
         // 重設背景的位置
         mountain.position.x = 0;
@@ -433,28 +456,13 @@ function animate(timestamp) {
 
     // 如果障礙物或獎勵物件移出畫布，重新設定它們的位置
     if (meat.position.x + meat.width < 0) {
-        const rightmost = Math.max(
-            stoneA.position.x + stoneA.width,
-            stoneB.position.x + stoneB.width
-        );
-        meat.position.x =
-        Math.max(canvas.width, rightmost) + 200 + Math.random() * 500;
+        placeAfterOthers(meat, [stoneA, stoneB]);
     }
     if (stoneA.position.x + stoneA.width < 0) {
-        const rightmost = Math.max(
-            meat.position.x + meat.width,
-            stoneB.position.x + stoneB.width 
-        );
-        stoneA.position.x = 
-        Math.max(canvas.width, rightmost) + 200 + Math.random() * 500;
+        placeAfterOthers(stoneA, [meat, stoneB]);
     }
     if (stoneB.position.x + stoneB.width < 0) {
-        const rightmost = Math.max(
-            meat.position.x + meat.width,
-            stoneA.position.x + stoneA.width
-        );
-        stoneB.position.x = 
-        Math.max(canvas.width, rightmost) + 200 + Math.random() * 500;
+        placeAfterOthers(stoneB, [meat, stoneA]);
     }
 
     // 畫出障礙物和獎勵物件
@@ -493,12 +501,7 @@ function animate(timestamp) {
     meatSound.play();
 
     // 將獎勵物件移到畫面右側，避免重複加分
-    const rightmost = Math.max(
-        stoneA.position.x + stoneA.width,
-        stoneB.position.x + stoneB.width
-    );
-    meat.position.x = Math.max(canvas.width, rightmost)
-    + 200 + Math.random() * 300;
+    placeAfterOthers(meat, [stoneA, stoneB]);
     }
 
    
@@ -525,13 +528,7 @@ function animate(timestamp) {
         }
 
         // 把石頭 A 移到畫面右側，避免重複扣分
-        const rightmost = Math.max(
-        meat.position.x + meat.width,
-        stoneB.position.x + stoneB.width
-        );
-
-        stoneA.position.x = Math.max(canvas.width, rightmost)
-        + 200 + Math.random() * 300;
+        placeAfterOthers(stoneA, [meat, stoneB]);
     }
 
     // 判斷是否撞到石頭 B
@@ -557,13 +554,7 @@ function animate(timestamp) {
         }        
 
         // 把石頭 B 移到畫面右側，避免重複扣分
-        const rightmost = Math.max(
-            meat.position.x + meat.width,
-            stoneA.position.x + stoneA.width
-        );
-
-        stoneB.position.x = Math.max(canvas.width, rightmost)
-            + 200 + Math.random() * 300;
+        placeAfterOthers(stoneB, [meat, stoneA]);
     }
 
     // 更新玩家動畫
